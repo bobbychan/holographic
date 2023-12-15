@@ -5,7 +5,7 @@ import axios from "axios";
 // if (process.env.NODE_ENV === 'development') {
 //   axios.defaults.baseURL = 'https://mymytong-h5.mt0577.com';
 // }
-axios.defaults.baseURL = "http://h5.panda-3d.com";
+axios.defaults.baseURL = "https://h5.panda-3d.com";
 
 interface IRequestOptions extends AxiosRequestConfig {
   silence?: boolean; // 不弹出消息提示
@@ -59,7 +59,7 @@ const getRequestInstance = (): AxiosInstance => {
       config.headers = config.headers ?? {};
 
       if (access_token) {
-        config.headers.Authorization = `Bearer ${access_token}`;
+        config.headers.Authorization = access_token;
       }
       if (config.method === "post") {
         // 签名

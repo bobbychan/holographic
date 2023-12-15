@@ -1,6 +1,12 @@
 import { STLLoader } from "@/utils/loaders/STLLoader";
 import { useFrame, useLoader, useThree } from "@react-three/fiber";
-import { forwardRef, useEffect, useRef } from "react";
+import {
+  ForwardedRef,
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+} from "react";
 import * as THREE from "three";
 
 interface ModelRenderProps {
@@ -8,10 +14,13 @@ interface ModelRenderProps {
   rotate?: "left" | "right";
 }
 
+export type MeshHandle = {
+  zoom: (type: "in" | "out") => void;
+};
+
 const ModelRender = (
-  props: ModelRenderProps
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  // ref: ForwardedRef<HTMLCanvasElement>
+  props: ModelRenderProps,
+  ref: ForwardedRef<MeshHandle>
 ) => {
   const { url, rotate } = props;
   const { camera } = useThree();
@@ -40,6 +49,19 @@ const ModelRender = (
         meshRef.current.rotation.y += 0.01;
       }
     }
+  });
+
+  useImperativeHandle(ref, () => {
+    return {
+      zoom: (type: "in" | "out") => {
+        if (type === "in") {
+          camera.zoom += 0.1;
+        } else {
+          camera.zoom -= 0.1;
+        }
+        camera.updateProjectionMatrix();
+      },
+    };
   });
 
   return (

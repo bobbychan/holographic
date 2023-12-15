@@ -5,23 +5,34 @@ import { cx } from "@/utils/utils";
 import { ArcballControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { Toast } from "antd-mobile";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { io } from "socket.io-client";
+import { useSocket, useSocketEvent } from "socket.io-react-hook";
 
-type EventList =
-  | "Up"
-  | "Down"
-  | "Left"
-  | "Right"
-  | "Forward"
-  | "Backward"
-  | "Clockwise"
-  | "AntiClockwise"
-  | "Wave";
+// type EventList =
+//   | "Up"
+//   | "Down"
+//   | "Left"
+//   | "Right"
+//   | "Forward"
+//   | "Backward"
+//   | "Clockwise"
+//   | "AntiClockwise"
+//   | "Wave";
+
+export type MeshHandle = {
+  zoom: (type: "in" | "out") => void;
+};
 
 const chocolatePrinterSn = "SYOW003F1010A3F0";
-const toyPrinterSn = "SYOW003F1011B193";
+const toyPrinterSn1 = "SYOW003F1011B193";
+const toyPrinterSn2 = "SYOW003F1011B2D7";
+let receivedTime = Date.now();
+
+// 随机选择一个sn序列号
+function getToyPrinterSn() {
+  return Math.random() > 0.5 ? toyPrinterSn1 : toyPrinterSn2;
+}
 
 const chocolateModelData = [
   {
@@ -91,46 +102,40 @@ const toyModelData = [
 
 export default function HomePage() {
   const [searchParams] = useSearchParams();
-  const wsAddress = searchParams.get("ws") || location.origin;
+  const wsAddress = searchParams.get("ws") || "";
+  const type = searchParams.get("type") ? Number(searchParams.get("type")) : 1;
 
-  const socket = io(wsAddress, {
-    autoConnect: true,
-  });
-
-  console.log(socket.connected, "socket");
-  const [isConnected, setIsConnected] = useState(socket.connected);
+  const ref = useRef<MeshHandle>(null);
 
   // 0 巧克力 1 玩具
   // 默认玩具打印机
-  const [printerType, setPrinterType] = useState(1);
-  const [printerSn, setPrinterSn] = useState(toyPrinterSn);
+  const [printerType, setPrinterType] = useState(type);
+  const [printerSn, setPrinterSn] = useState(getToyPrinterSn());
   const [modelData, setModelData] = useState(toyModelData);
   const [index, setIndex] = useState(0);
   const [rotate, setRotate] = useState<"left" | "right">("left");
   const [noticeModalOpen, setNoticeModalOpen] = useState(false);
   const [countDown, setCountDown] = useState(20);
 
-  // const { socket, connected, error } = useSocket({ path: wsAddress });
-  // const { lastMessage } = useSocketEvent<string>(socket, "PAJ", {
-  //   onMessage: (message) => console.log(message, "message"),
-  // });
-  useEffect(() => {
-    function onConnect() {
-      setIsConnected(true);
-    }
+  const { socket, connected } = useSocket(wsAddress, {
+    // path: wsAddress,
+    autoConnect: true,
+    enabled: !!wsAddress,
+  });
+  useSocketEvent<string>(socket, "PAJ", {
+    onMessage: (message) => {
+      console.log(message, "message");
+      receivedTime = Date.now();
+      if (receivedTime - Date.now() < 1000) {
+        return;
+      }
 
-    function onDisconnect() {
-      setIsConnected(false);
-    }
-
-    function onEvent(value: EventList) {
-      console.log(value, "value");
-      switch (value) {
+      switch (message) {
         case "Up":
-          // setRotate("left");
+          ref.current?.zoom("in");
           break;
         case "Down":
-          // setRotate("right");
+          ref.current?.zoom("out");
           break;
         case "Left":
           onPrev();
@@ -139,42 +144,52 @@ export default function HomePage() {
           onNext();
           break;
         case "Forward":
-          // onPrint();
           break;
         case "Backward":
           break;
         case "Clockwise":
+          setRotate("left");
           break;
         case "AntiClockwise":
+          setRotate("right");
           break;
         case "Wave":
-          // setNoticeModalOpen(false);
+          onPrint();
           break;
         default:
           break;
       }
-      // setFooEvents((previous) => [...previous, value]);
-    }
+    },
+  });
 
-    socket.on("connect", onConnect);
-    socket.on("disconnect", onDisconnect);
-    socket.on("PAJ", onEvent);
+  const onPrev = useCallback(() => {
+    setIndex((prev) => {
+      if (prev === 0) {
+        return modelData.length - 1;
+      } else {
+        return prev - 1;
+      }
+    });
+  }, [modelData.length]);
 
-    return () => {
-      socket.off("connect", onConnect);
-      socket.off("disconnect", onDisconnect);
-      socket.off("PAJ", onEvent);
-    };
-  }, [socket]);
+  const onNext = useCallback(() => {
+    setIndex((prev) => {
+      if (prev === modelData.length - 1) {
+        return 0;
+      } else {
+        return prev + 1;
+      }
+    });
+  }, [modelData.length]);
 
-  console.log(`连接状态： ${isConnected}`);
+  console.log(`连接状态： ${connected}`);
 
   useEffect(() => {
     if (printerType === 0) {
       setPrinterSn(chocolatePrinterSn);
       setModelData(chocolateModelData);
     } else {
-      setPrinterSn(toyPrinterSn);
+      setPrinterSn(getToyPrinterSn());
       setModelData(toyModelData);
     }
   }, [printerType]);
@@ -197,26 +212,6 @@ export default function HomePage() {
     }
   }, [noticeModalOpen]);
 
-  const onPrev = () => {
-    setIndex((prev) => {
-      if (prev === 0) {
-        return modelData.length - 1;
-      } else {
-        return prev - 1;
-      }
-    });
-  };
-
-  const onNext = () => {
-    setIndex((prev) => {
-      if (prev === modelData.length - 1) {
-        return 0;
-      } else {
-        return prev + 1;
-      }
-    });
-  };
-
   const onPrint = async () => {
     // 1.检测设备是否在线
     const onlineRes = await checkOnline(printerSn);
@@ -228,6 +223,10 @@ export default function HomePage() {
         type: 1, // 使用盼打币
         productAttachmentId: modelData[index].product_attachment_id,
       });
+      if (printRes.errorCode === 0) {
+        setNoticeModalOpen(true);
+      }
+
       console.log(printRes, "printRes");
     } else if (onlineRes.is_online === 0) {
       Toast.show({
@@ -251,7 +250,7 @@ export default function HomePage() {
           <ambientLight intensity={1} />
           <directionalLight intensity={1} position={[1, 1, 1]} />
           <directionalLight intensity={1} position={[-1, -1, -1]} />
-          <ModelRender url={modelData[index].url} rotate={rotate} />
+          <ModelRender ref={ref} url={modelData[index].url} rotate={rotate} />
         </Suspense>
       </Canvas>
       <div
