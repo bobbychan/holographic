@@ -9,7 +9,7 @@ interface NoticeModalProps {
 }
 
 export default function NoticeModal(props: NoticeModalProps) {
-  const { isOpen, closeModal, countDown = 15 } = props;
+  const { isOpen, closeModal, countDown = 20 } = props;
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -77,10 +77,10 @@ export default function NoticeModal(props: NoticeModalProps) {
                   </div>
                 </div>
 
-                <div className="mt-4">
+                <div className="mt-8 text-center">
                   <button
                     type="button"
-                    className="inline-flex justify-center rounded-md border border-transparent bg-blue-100 px-4 py-2 text-sm font-medium text-blue-900 hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                    className="px-4 py-2 text-lg font-medium text-white/75"
                     onClick={closeModal}
                   >
                     {countDown}秒后自动关闭

@@ -6,7 +6,19 @@ import { ArcballControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { Toast } from "antd-mobile";
 import { Suspense, useEffect, useState } from "react";
-import { useSocket, useSocketEvent } from "socket.io-react-hook";
+import { useSearchParams } from "react-router-dom";
+import { io } from "socket.io-client";
+
+type EventList =
+  | "Up"
+  | "Down"
+  | "Left"
+  | "Right"
+  | "Forward"
+  | "Backward"
+  | "Clockwise"
+  | "AntiClockwise"
+  | "Wave";
 
 const chocolatePrinterSn = "SYOW003F1010A3F0";
 const toyPrinterSn = "SYOW003F1011B193";
@@ -69,9 +81,25 @@ const toyModelData = [
     name: "兔子",
     url: "/model/b4.stl",
   },
+  {
+    id: 684991,
+    product_attachment_id: 428637,
+    name: "坦克",
+    url: "/model/b5.stl",
+  },
 ];
 
 export default function HomePage() {
+  const [searchParams] = useSearchParams();
+  const wsAddress = searchParams.get("ws") || location.origin;
+
+  const socket = io(wsAddress, {
+    autoConnect: true,
+  });
+
+  console.log(socket.connected, "socket");
+  const [isConnected, setIsConnected] = useState(socket.connected);
+
   // 0 巧克力 1 玩具
   // 默认玩具打印机
   const [printerType, setPrinterType] = useState(1);
@@ -80,12 +108,66 @@ export default function HomePage() {
   const [index, setIndex] = useState(0);
   const [rotate, setRotate] = useState<"left" | "right">("left");
   const [noticeModalOpen, setNoticeModalOpen] = useState(false);
-  const [countDown, setCountDown] = useState(15);
+  const [countDown, setCountDown] = useState(20);
 
-  const { socket, connected, error } = useSocket({ path: location.origin });
-  const { lastMessage } = useSocketEvent<string>(socket, "PAJ", {
-    onMessage: (message) => console.log(message, "message"),
-  });
+  // const { socket, connected, error } = useSocket({ path: wsAddress });
+  // const { lastMessage } = useSocketEvent<string>(socket, "PAJ", {
+  //   onMessage: (message) => console.log(message, "message"),
+  // });
+  useEffect(() => {
+    function onConnect() {
+      setIsConnected(true);
+    }
+
+    function onDisconnect() {
+      setIsConnected(false);
+    }
+
+    function onEvent(value: EventList) {
+      console.log(value, "value");
+      switch (value) {
+        case "Up":
+          // setRotate("left");
+          break;
+        case "Down":
+          // setRotate("right");
+          break;
+        case "Left":
+          onPrev();
+          break;
+        case "Right":
+          onNext();
+          break;
+        case "Forward":
+          // onPrint();
+          break;
+        case "Backward":
+          break;
+        case "Clockwise":
+          break;
+        case "AntiClockwise":
+          break;
+        case "Wave":
+          // setNoticeModalOpen(false);
+          break;
+        default:
+          break;
+      }
+      // setFooEvents((previous) => [...previous, value]);
+    }
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+    socket.on("PAJ", onEvent);
+
+    return () => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      socket.off("PAJ", onEvent);
+    };
+  }, [socket]);
+
+  console.log(`连接状态： ${isConnected}`);
 
   useEffect(() => {
     if (printerType === 0) {
@@ -100,13 +182,13 @@ export default function HomePage() {
   useEffect(() => {
     // noticeModalOpen打开后，30秒后自动关闭,并且重置倒计时
     if (noticeModalOpen) {
-      setCountDown(30);
+      setCountDown(20);
       const timer = setInterval(() => {
         setCountDown((prev) => {
           if (prev === 0) {
             setNoticeModalOpen(false);
             clearInterval(timer);
-            return 30;
+            return 20;
           } else {
             return prev - 1;
           }
@@ -114,9 +196,6 @@ export default function HomePage() {
       }, 1000);
     }
   }, [noticeModalOpen]);
-
-  console.log(`连接状态： ${connected}`);
-  console.log(`错误信息： ${error}`);
 
   const onPrev = () => {
     setIndex((prev) => {
@@ -210,7 +289,6 @@ export default function HomePage() {
         className="absolute bottom-10 left-8 right-8 mx-auto"
         style={{ width: window.innerHeight }}
       >
-        <div className="mb-3 text-center text-white">{lastMessage}</div>
         <div className="flex justify-between">
           <div className="flex gap-2">
             <button
@@ -228,7 +306,7 @@ export default function HomePage() {
           </div>
           <div>
             <button
-              className="border border-white px-8 py-2 text-white cursor-pointer border-r-0 opacity-0 hover:opacity-100 transition-opacity"
+              className="border border-white px-8 py-2 text-white cursor-pointer opacity-0 hover:opacity-100 transition-opacity"
               onClick={() => setRotate("left")}
             >
               左旋转
