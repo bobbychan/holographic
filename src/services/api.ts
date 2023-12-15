@@ -10,3 +10,18 @@ export async function checkOnline(sn: string) {
     is_online: number;
   }>(`/webapi/scan-print/machine-info?sn=${sn}`);
 }
+
+/**
+ * 发送打印请求
+ */
+export async function sendPrintRequest(params: {
+  sn: string;
+  id: number;
+  type: number;
+  productAttachmentId: number;
+}) {
+  return request("/webapi/scan-print/print-pay", {
+    method: "POST",
+    data: params,
+  });
+}
